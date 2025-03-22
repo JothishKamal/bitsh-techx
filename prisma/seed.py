@@ -3,7 +3,7 @@ import bcrypt
 import json
 import numpy as np
 from datetime import datetime
-from utility.generate_embedding import generate_form_embeddings
+from utility.generate_embedding import generate_form_embeddings, generate_embedding
 
 # Initialize Prisma client
 prisma = Prisma()
@@ -313,14 +313,13 @@ async def main():
     
     # Create Form for Copyright Notice (Form XVI)
     # Generate a random embedding vector of dimension 1024
-    embedding_vector = np.random.rand(1024).tolist()
     
     form_description = """
     Form XVI NOTICE UNDER SECTION 53 OF THE ACT (See rule 79)
     For reporting copyright infringement to the Commissioner of Customs, Central Board of Excise and Customs,
     New Delhi, in accordance with section 53 of the Copyright Act, 1957 (14 of 1957).
     """
-    
+    embedding_vector = generate_form_embeddings(name="Form XVI NOTICE UNDER SECTION 53 OF THE ACT (See rule 79)",description=form_description)
     copyright_form = await prisma.form.create(
         data={
             "title": "Form XVI - Notice Under Section 53 of the Copyright Act",
@@ -723,13 +722,13 @@ async def main():
     
     # Create Form XIV for Copyright Registration
     # Generate a random embedding vector of dimension 1024
-    registration_embedding_vector = np.random.rand(1024).tolist()
     
     registration_form_description = """
     FORM XIV - APPLICATION FOR REGISTRATION OF COPYRIGHT [SEE RULE 70]
     For applying to the Registrar of Copyrights, Copyright Office, New Delhi for registration of copyright
     in accordance with section 45 of the Copyright Act, 1957 (14 of 1957).
     """
+    registration_embedding_vector = generate_form_embeddings(name="FORM XIV - APPLICATION FOR REGISTRATION OF COPYRIGHT [SEE RULE 70]",description=registration_form_description)
     
     copyright_registration_form = await prisma.form.create(
         data={
