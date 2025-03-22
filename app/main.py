@@ -2,6 +2,8 @@ from pydantic import BaseModel
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes import ping
+
 app = FastAPI()
 
 origins = ["*"]
@@ -13,9 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-class Stuff(BaseModel):
-    content: str
+app.include_router(ping.router, prefix="/api")
 
 
 @app.get("/")
