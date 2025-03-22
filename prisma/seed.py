@@ -4,25 +4,36 @@ import json
 import numpy as np
 from datetime import datetime
 
-import cohere
-import os
+from prisma import Prisma
+import bcrypt
+import json
+import numpy as np
+from datetime import datetime
+
+# Replace Cohere with LangChain imports
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from typing import List, Optional
 
-# Initialize Cohere client
-co = cohere.Client(os.getenv("COHERE_API_KEY"))
+# Initialize LangChain embedding model
+# Using all-MiniLM-L6-v2 which outputs 384-dimensional embeddings
+embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
 def generate_embedding(text: str) -> List[float]:
-    """Generate embeddings using Cohere's FIM model."""
+    """Generate embeddings using HuggingFace model via LangChain."""
     if not text:
-        return []
+        return [0] * 1024  # Return zeros vector of proper dimension
     
-    response = co.embed(
-        texts=[text],
-        model="embed-english-v3.0",
-        input_type="search_document"
-    )
+    # Get embeddings from the model
+    embedding = embeddings_model.embed_query(text)
     
-    return response.embeddings[0]
+    # Pad or truncate to 1024 dimensions to match your DB schema
+    if len(embedding) < 1024:
+        padding = [0] * (1024 - len(embedding))
+        embedding.extend(padding)
+    elif len(embedding) > 1024:
+        embedding = embedding[:1024]
+        
+    return embedding
 
 def generate_form_embeddings(name: str, description: Optional[str] = None) -> List[float]:
     """Generate embeddings for a form based on its name and description."""
@@ -31,7 +42,6 @@ def generate_form_embeddings(name: str, description: Optional[str] = None) -> Li
         text += " " + description
     
     return generate_embedding(text)
-
 
 # Initialize Prisma client
 prisma = Prisma()
@@ -43,13 +53,15 @@ async def main():
     # Create roles
     admin_role = await prisma.role.create(
         data={
-            "name": "Admin"
+            "name": "Admin",
+            "description": "Administrator role with full access"
         }
     )
     
     user_role = await prisma.role.create(
         data={
-            "name": "User"
+            "name": "User",
+            "description": "Regular user with limited access"
         }
     )
     
@@ -347,14 +359,16 @@ async def main():
     For reporting copyright infringement to the Commissioner of Customs, Central Board of Excise and Customs,
     New Delhi, in accordance with section 53 of the Copyright Act, 1957 (14 of 1957).
     """
-    embedding_vector = generate_form_embeddings(name="Form XVI NOTICE UNDER SECTION 53 OF THE ACT (See rule 79)",description=form_description)
-    copyright_form = await prisma.form.create(
-        data={
-            "title": "Form XVI - Notice Under Section 53 of the Copyright Act",
-            "description": form_description,
-            "embeddings": embedding_vector,
-        }
-    )
+    form_title = "Form XVI NOTICE UNDER SECTION 53 OF THE ACT (See rule 79)"
+    embedding_vector = [float(val) for val in generate_form_embeddings("Form XVI NOTICE UNDER SECTION 53 OF THE ACT (See rule 79)", description= form_description)]    
+    form = await prisma.execute_raw(
+            """
+            INSERT INTO forms (title, description, embeddings, "createdAt", "updatedAt")
+            VALUES ($1, $2, $3::vector(1024), NOW(), NOW())
+            RETURNING id;
+            """,
+            form_title, form_description, embedding_vector
+        )
     
     # Associate fields with the form
     field_order = 1
